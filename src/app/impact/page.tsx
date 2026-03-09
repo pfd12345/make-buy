@@ -2,6 +2,7 @@
 
 import { useMemo } from "react";
 import { useScenarioStore } from "@/stores/scenario-store";
+import { useScenarioHydration } from "@/hooks/use-store-hydration";
 import { useBaselineStore } from "@/stores/baseline-store";
 import { computeScenarioImpact } from "@/lib/calculations/scenario-engine";
 import { PageHeader } from "@/components/layout/page-header";
@@ -15,6 +16,7 @@ import type { ColumnDef } from "@tanstack/react-table";
 import type { ScenarioYearlyImpact } from "@/types";
 
 export default function ImpactPage() {
+  useScenarioHydration();
   const scenarios = useScenarioStore((s) => s.scenarios);
   const activeId = useScenarioStore((s) => s.activeScenarioId);
   const setActive = useScenarioStore((s) => s.setActiveScenario);

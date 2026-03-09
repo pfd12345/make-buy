@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from "react";
 import { useScenarioStore } from "@/stores/scenario-store";
+import { useScenarioHydration } from "@/hooks/use-store-hydration";
 import { useBaselineStore } from "@/stores/baseline-store";
 import { computeScenarioImpact } from "@/lib/calculations/scenario-engine";
 import { PageHeader } from "@/components/layout/page-header";
@@ -17,6 +18,7 @@ import {
 const RADAR_COLORS = ["#3b82f6", "#ef4444", "#10b981", "#f59e0b"];
 
 export default function ComparePage() {
+  useScenarioHydration();
   const scenarios = useScenarioStore((s) => s.scenarios);
   const baseline = useBaselineStore((s) => ({
     sites: s.sites, performance: s.performance, lines: s.lines,

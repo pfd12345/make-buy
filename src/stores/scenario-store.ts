@@ -70,6 +70,9 @@ export const useScenarioStore = create<ScenarioState>()(
       },
       getAllScenarios: () => get().scenarios,
     })),
-    { name: "netplan-scenarios" }
+    {
+      name: "netplan-scenarios",
+      skipHydration: true,
+    }
   )
 );

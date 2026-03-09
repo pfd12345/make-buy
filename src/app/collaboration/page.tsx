@@ -1,6 +1,7 @@
 "use client";
 
 import { useScenarioStore } from "@/stores/scenario-store";
+import { useScenarioHydration } from "@/hooks/use-store-hydration";
 import { PageHeader } from "@/components/layout/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -14,6 +15,7 @@ const COLUMNS: { status: ScenarioStatus; label: string }[] = [
 ];
 
 export default function CollaborationPage() {
+  useScenarioHydration();
   const scenarios = useScenarioStore((s) => s.scenarios);
   const updateStatus = useScenarioStore((s) => s.updateScenarioStatus);
   const deleteScenario = useScenarioStore((s) => s.deleteScenario);

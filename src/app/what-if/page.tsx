@@ -3,6 +3,7 @@
 import { useState, useMemo } from "react";
 import { useBaselineStore } from "@/stores/baseline-store";
 import { useScenarioStore } from "@/stores/scenario-store";
+import { useScenarioHydration } from "@/hooks/use-store-hydration";
 import { computeScenarioImpact } from "@/lib/calculations/scenario-engine";
 import { PageHeader } from "@/components/layout/page-header";
 import { KPICard } from "@/components/charts/kpi-card";
@@ -24,6 +25,7 @@ const SCENARIO_TYPES: { value: ScenarioType; label: string; desc: string }[] = [
 ];
 
 export default function WhatIfPage() {
+  useScenarioHydration();
   const sites = useBaselineStore((s) => s.sites);
   const lines = useBaselineStore((s) => s.lines);
   const baseline = useBaselineStore((s) => ({

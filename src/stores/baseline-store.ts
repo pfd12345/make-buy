@@ -20,9 +20,7 @@ interface BaselineState {
   qualifications: SiteProductQualification[];
   riskAlerts: RiskAlert[];
   isCustomDataLoaded: boolean;
-  isInitialized: boolean;
 
-  loadSeedData: () => void;
   loadCSVData: (dataType: string, records: unknown[]) => void;
   resetToSeed: () => void;
   getNetworkSummary: () => NetworkSummary;
@@ -35,32 +33,17 @@ interface BaselineState {
 
 export const useBaselineStore = create<BaselineState>()(
   immer((set, get) => ({
-    sites: [],
-    performance: [],
-    lines: [],
-    assets: [],
-    workforce: [],
-    opex: [],
-    capex: [],
-    qualifications: [],
-    riskAlerts: [],
+    // Initialize eagerly with seed data so it's available on first render
+    sites: seedData.sites,
+    performance: seedData.sitePerformance,
+    lines: seedData.productionLines,
+    assets: seedData.assets,
+    workforce: seedData.workforce,
+    opex: seedData.opexBreakdowns,
+    capex: seedData.capexEntries,
+    qualifications: seedData.qualifications,
+    riskAlerts: seedData.riskAlerts,
     isCustomDataLoaded: false,
-    isInitialized: false,
-
-    loadSeedData: () => {
-      set((state) => {
-        state.sites = seedData.sites;
-        state.performance = seedData.sitePerformance;
-        state.lines = seedData.productionLines;
-        state.assets = seedData.assets;
-        state.workforce = seedData.workforce;
-        state.opex = seedData.opexBreakdowns;
-        state.capex = seedData.capexEntries;
-        state.qualifications = seedData.qualifications;
-        state.riskAlerts = seedData.riskAlerts;
-        state.isInitialized = true;
-      });
-    },
 
     loadCSVData: (dataType: string, records: unknown[]) => {
       set((state) => {
@@ -86,8 +69,16 @@ export const useBaselineStore = create<BaselineState>()(
     },
 
     resetToSeed: () => {
-      get().loadSeedData();
       set((state) => {
+        state.sites = seedData.sites;
+        state.performance = seedData.sitePerformance;
+        state.lines = seedData.productionLines;
+        state.assets = seedData.assets;
+        state.workforce = seedData.workforce;
+        state.opex = seedData.opexBreakdowns;
+        state.capex = seedData.capexEntries;
+        state.qualifications = seedData.qualifications;
+        state.riskAlerts = seedData.riskAlerts;
         state.isCustomDataLoaded = false;
       });
     },
@@ -98,7 +89,6 @@ export const useBaselineStore = create<BaselineState>()(
       const totalCapex = capex.filter((c) => c.year === 2026).reduce((sum, c) => sum + c.amount, 0);
       const totalHeadcount = workforce.reduce((sum, w) => sum + w.headcount, 0);
 
-      // Weighted utilization by headcount
       let weightedUtil = 0;
       let weightedOtif = 0;
       let totalWeight = 0;
