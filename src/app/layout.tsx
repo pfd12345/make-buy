@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { AppSidebar } from "@/components/layout/app-sidebar";
+import { ClientGate } from "@/components/layout/client-gate";
 
 export const viewport: Viewport = {
   width: "device-width",
@@ -23,12 +24,12 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
-      <body className="antialiased">
+    <html lang="en" suppressHydrationWarning>
+      <body className="antialiased" suppressHydrationWarning>
         <div className="flex h-screen overflow-hidden">
           <AppSidebar />
           <main className="flex-1 overflow-y-auto p-6">
-            {children}
+            <ClientGate>{children}</ClientGate>
           </main>
         </div>
       </body>
