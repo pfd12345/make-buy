@@ -3,7 +3,7 @@
 import { useMemo } from "react";
 import { useBaselineStore } from "@/stores/baseline-store";
 import { PageHeader } from "@/components/layout/page-header";
-import { StackedBarChart } from "@/components/charts/stacked-bar-chart";
+import { StackedBarChart } from "@/components/charts/dynamic";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { FUNCTION_COLORS, ALL_FUNCTIONS, OPEX_COLORS, OPEX_LABELS } from "@/lib/constants";
 import type { FunctionType } from "@/types";

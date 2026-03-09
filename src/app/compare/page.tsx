@@ -6,7 +6,7 @@ import { useScenarioHydration } from "@/hooks/use-store-hydration";
 import { useBaselineStore } from "@/stores/baseline-store";
 import { computeScenarioImpact } from "@/lib/calculations/scenario-engine";
 import { PageHeader } from "@/components/layout/page-header";
-import { RadarChartComponent } from "@/components/charts/radar-chart";
+import { RadarChartComponent } from "@/components/charts/dynamic";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";

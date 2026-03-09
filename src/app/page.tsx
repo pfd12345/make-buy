@@ -3,7 +3,7 @@
 import { useBaselineStore } from "@/stores/baseline-store";
 import { PageHeader } from "@/components/layout/page-header";
 import { KPICard } from "@/components/charts/kpi-card";
-import { SiteUtilizationChart } from "@/components/charts/site-utilization-chart";
+import { SiteUtilizationChart } from "@/components/charts/dynamic";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";

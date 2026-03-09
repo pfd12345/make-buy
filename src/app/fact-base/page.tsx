@@ -5,7 +5,7 @@ import { useBaselineStore } from "@/stores/baseline-store";
 import { PageHeader } from "@/components/layout/page-header";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { StackedBarChart } from "@/components/charts/stacked-bar-chart";
+import { StackedBarChart } from "@/components/charts/dynamic";
 import { DataTable, SortableHeader } from "@/components/tables/data-table";
 import { FUNCTION_COLORS, OPEX_COLORS, OPEX_LABELS } from "@/lib/constants";
 import type { ColumnDef } from "@tanstack/react-table";

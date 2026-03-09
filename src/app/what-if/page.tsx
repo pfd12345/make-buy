@@ -7,7 +7,7 @@ import { useScenarioHydration } from "@/hooks/use-store-hydration";
 import { computeScenarioImpact } from "@/lib/calculations/scenario-engine";
 import { PageHeader } from "@/components/layout/page-header";
 import { KPICard } from "@/components/charts/kpi-card";
-import { SimpleAreaChart } from "@/components/charts/area-chart";
+import { SimpleAreaChart } from "@/components/charts/dynamic";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";

@@ -7,7 +7,7 @@ import { useBaselineStore } from "@/stores/baseline-store";
 import { computeScenarioImpact } from "@/lib/calculations/scenario-engine";
 import { PageHeader } from "@/components/layout/page-header";
 import { KPICard } from "@/components/charts/kpi-card";
-import { SimpleAreaChart } from "@/components/charts/area-chart";
+import { SimpleAreaChart } from "@/components/charts/dynamic";
 import { DataTable, SortableHeader } from "@/components/tables/data-table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
