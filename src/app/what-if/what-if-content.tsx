@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import { useShallow } from "zustand/react/shallow";
 import { useBaselineStore } from "@/stores/baseline-store";
 import { useScenarioStore } from "@/stores/scenario-store";
 import { useScenarioHydration } from "@/hooks/use-store-hydration";
@@ -28,11 +29,11 @@ export default function WhatIfContent() {
   useScenarioHydration();
   const sites = useBaselineStore((s) => s.sites);
   const lines = useBaselineStore((s) => s.lines);
-  const baseline = useBaselineStore((s) => ({
+  const baseline = useBaselineStore(useShallow((s) => ({
     sites: s.sites, performance: s.performance, lines: s.lines,
     assets: s.assets, workforce: s.workforce, opex: s.opex,
     capex: s.capex, qualifications: s.qualifications,
-  }));
+  })));
   const addScenario = useScenarioStore((s) => s.addScenario);
 
   const [step, setStep] = useState(1);

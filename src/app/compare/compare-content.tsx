@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import { useShallow } from "zustand/react/shallow";
 import { useScenarioStore } from "@/stores/scenario-store";
 import { useScenarioHydration } from "@/hooks/use-store-hydration";
 import { useBaselineStore } from "@/stores/baseline-store";
@@ -20,11 +21,11 @@ const RADAR_COLORS = ["#3b82f6", "#ef4444", "#10b981", "#f59e0b"];
 export default function CompareContent() {
   useScenarioHydration();
   const scenarios = useScenarioStore((s) => s.scenarios);
-  const baseline = useBaselineStore((s) => ({
+  const baseline = useBaselineStore(useShallow((s) => ({
     sites: s.sites, performance: s.performance, lines: s.lines,
     assets: s.assets, workforce: s.workforce, opex: s.opex,
     capex: s.capex, qualifications: s.qualifications,
-  }));
+  })));
 
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
