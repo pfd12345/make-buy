@@ -1,13 +1,387 @@
 "use client";
 
+import { useState, useRef, useCallback } from "react";
 import { PageHeader } from "@/components/layout/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   Table, TableBody, TableCell, TableHead,
   TableHeader, TableRow,
 } from "@/components/ui/table";
+import { useBaselineStore } from "@/stores/baseline-store";
+import { useScenarioStore } from "@/stores/scenario-store";
+import type { Scenario } from "@/types";
+
+/* ------------------------------------------------------------------ */
+/*  CSV section-based format helpers                                   */
+/* ------------------------------------------------------------------ */
+
+const BASELINE_SECTIONS = [
+  "sites", "performance", "lines", "assets", "workforce",
+  "opex", "capex", "qualifications", "riskAlerts",
+] as const;
+
+type BaselineKey = (typeof BASELINE_SECTIONS)[number];
+
+/** Fields per entity — order determines CSV column order */
+const ENTITY_COLUMNS: Record<BaselineKey | "scenarios", string[]> = {
+  sites: ["id", "name", "region", "country", "status", "modalities", "lineCount", "latitude", "longitude"],
+  performance: ["siteId", "utilization", "otif", "oe", "rft"],
+  lines: ["id", "siteId", "name", "modality", "lineType", "capacityValue", "capacityUnit", "utilization", "status", "commissionYear"],
+  assets: ["id", "lineId", "siteId", "siteName", "lineName", "assetType", "capacityValue", "capacityUnit", "utilization", "ageYears", "expectedLifespan", "obsolescenceRisk", "annualMaintenanceCost", "replacementCost"],
+  workforce: ["siteId", "siteName", "function", "headcount", "avgCostPerFTE", "totalCost"],
+  opex: ["siteId", "siteName", "year", "peopleCost", "depreciation", "materialCost", "otherDirect", "crossCharges", "total"],
+  capex: ["siteId", "siteName", "year", "projectName", "amount", "category"],
+  qualifications: ["siteId", "siteName", "productFamily", "modality", "lineId", "isOnlySource", "backupSiteIds"],
+  riskAlerts: ["id", "severity", "title", "description", "targetScreen", "targetFilter", "dimension"],
+  scenarios: ["id", "name", "type", "description", "status", "createdAt", "parameters"],
+};
+
+/** Escape a value for CSV — quote if it contains commas, quotes, or newlines */
+function csvEscape(val: unknown): string {
+  if (val === null || val === undefined) return "";
+  if (typeof val === "boolean") return val ? "true" : "false";
+  if (typeof val === "number") return String(val);
+  if (Array.isArray(val)) {
+    const str = val.join("|");
+    return csvEscape(str);
+  }
+  if (typeof val === "object") return csvEscape(JSON.stringify(val));
+  const s = String(val);
+  if (s.includes(",") || s.includes('"') || s.includes("\n") || s.includes("|")) {
+    return '"' + s.replace(/"/g, '""') + '"';
+  }
+  return s;
+}
+
+/** Parse a CSV value back to a typed value */
+function csvParseValue(val: string, key: string): unknown {
+  const trimmed = val.trim();
+  if (trimmed === "") return "";
+
+  // Boolean fields
+  if (key === "isOnlySource" || key === "severanceIncluded") {
+    return trimmed === "true";
+  }
+
+  // Array fields (pipe-delimited)
+  if (key === "modalities" || key === "backupSiteIds" || key === "targetSiteIds" || key === "targetLineIds") {
+    if (trimmed === "") return [];
+    return trimmed.split("|");
+  }
+
+  // JSON object fields
+  if (key === "parameters" || key === "targetFilter") {
+    if (trimmed === "") return key === "parameters" ? { targetSiteIds: [] } : undefined;
+    try { return JSON.parse(trimmed); } catch { return trimmed; }
+  }
+
+  // Numeric fields
+  const numericKeys = new Set([
+    "lineCount", "latitude", "longitude", "utilization", "otif", "oe", "rft",
+    "capacityValue", "commissionYear", "ageYears", "expectedLifespan",
+    "annualMaintenanceCost", "replacementCost", "headcount", "avgCostPerFTE",
+    "totalCost", "year", "peopleCost", "depreciation", "materialCost",
+    "otherDirect", "crossCharges", "total", "amount",
+  ]);
+  if (numericKeys.has(key)) {
+    const n = Number(trimmed);
+    return isNaN(n) ? trimmed : n;
+  }
+
+  return trimmed;
+}
+
+/** Serialize all data to sectioned CSV */
+function serializeToCSV(
+  baseline: Record<string, unknown[]>,
+  scenarios: Scenario[],
+): string {
+  const lines: string[] = [];
+
+  for (const section of BASELINE_SECTIONS) {
+    const cols = ENTITY_COLUMNS[section];
+    const rows = baseline[section] as Record<string, unknown>[];
+    lines.push(`[SECTION:${section}]`);
+    lines.push(cols.join(","));
+    for (const row of rows) {
+      lines.push(cols.map((c) => csvEscape(row[c])).join(","));
+    }
+    lines.push(""); // blank line between sections
+  }
+
+  // Scenarios section
+  const scenarioCols = ENTITY_COLUMNS.scenarios;
+  lines.push("[SECTION:scenarios]");
+  lines.push(scenarioCols.join(","));
+  for (const s of scenarios) {
+    lines.push(scenarioCols.map((c) => csvEscape(s[c as keyof Scenario])).join(","));
+  }
+
+  return lines.join("\n");
+}
+
+/** Parse a single CSV row respecting quoted fields */
+function parseCSVRow(line: string): string[] {
+  const result: string[] = [];
+  let current = "";
+  let inQuotes = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (inQuotes) {
+      if (ch === '"' && line[i + 1] === '"') {
+        current += '"';
+        i++;
+      } else if (ch === '"') {
+        inQuotes = false;
+      } else {
+        current += ch;
+      }
+    } else {
+      if (ch === '"') {
+        inQuotes = true;
+      } else if (ch === ",") {
+        result.push(current);
+        current = "";
+      } else {
+        current += ch;
+      }
+    }
+  }
+  result.push(current);
+  return result;
+}
+
+/** Parse sectioned CSV back to data */
+function parseFromCSV(text: string): {
+  baseline: Record<string, unknown[]>;
+  scenarios: Scenario[];
+} | string {
+  const rawLines = text.split(/\r?\n/);
+  const result: Record<string, unknown[]> = {};
+  let currentSection: string | null = null;
+  let headers: string[] = [];
+
+  for (const line of rawLines) {
+    const trimmed = line.trim();
+    if (trimmed === "") continue;
+
+    const sectionMatch = trimmed.match(/^\[SECTION:(\w+)\]$/);
+    if (sectionMatch) {
+      currentSection = sectionMatch[1];
+      result[currentSection] = [];
+      headers = [];
+      continue;
+    }
+
+    if (!currentSection) continue;
+
+    if (headers.length === 0) {
+      headers = trimmed.split(",");
+      continue;
+    }
+
+    const values = parseCSVRow(trimmed);
+    const obj: Record<string, unknown> = {};
+    for (let i = 0; i < headers.length; i++) {
+      obj[headers[i]] = csvParseValue(values[i] ?? "", headers[i]);
+    }
+    result[currentSection].push(obj);
+  }
+
+  // Validate all required sections exist
+  for (const key of BASELINE_SECTIONS) {
+    if (!result[key]) return `Missing required section: [SECTION:${key}]`;
+  }
+  if (!result.scenarios) return "Missing required section: [SECTION:scenarios]";
+
+  const scenarios = result.scenarios as unknown as Scenario[];
+  delete result.scenarios;
+
+  return { baseline: result, scenarios };
+}
+
+/* ------------------------------------------------------------------ */
+/*  Download helper                                                    */
+/* ------------------------------------------------------------------ */
+function downloadFile(content: string, filename: string, type: string) {
+  const blob = new Blob([content], { type });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function todayStamp() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+/* ------------------------------------------------------------------ */
+/*  Export / Import Card component                                     */
+/* ------------------------------------------------------------------ */
+function DataExportImportCard() {
+  const [status, setStatus] = useState<{ type: "success" | "error"; message: string } | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const showStatus = useCallback((type: "success" | "error", message: string) => {
+    setStatus({ type, message });
+    setTimeout(() => setStatus(null), 5000);
+  }, []);
+
+  const handleExportJSON = useCallback(() => {
+    const state = useBaselineStore.getState();
+    const scenarios = useScenarioStore.getState().scenarios;
+    const data = {
+      version: 1,
+      exportedAt: new Date().toISOString(),
+      baseline: {
+        sites: state.sites,
+        performance: state.performance,
+        lines: state.lines,
+        assets: state.assets,
+        workforce: state.workforce,
+        opex: state.opex,
+        capex: state.capex,
+        qualifications: state.qualifications,
+        riskAlerts: state.riskAlerts,
+      },
+      scenarios,
+    };
+    downloadFile(JSON.stringify(data, null, 2), `netplan-export-${todayStamp()}.json`, "application/json");
+    showStatus("success", `Exported ${state.sites.length} sites, ${scenarios.length} scenarios as JSON`);
+  }, [showStatus]);
+
+  const handleExportCSV = useCallback(() => {
+    const state = useBaselineStore.getState();
+    const scenarios = useScenarioStore.getState().scenarios;
+    const baseline: Record<string, unknown[]> = {
+      sites: state.sites,
+      performance: state.performance,
+      lines: state.lines,
+      assets: state.assets,
+      workforce: state.workforce,
+      opex: state.opex,
+      capex: state.capex,
+      qualifications: state.qualifications,
+      riskAlerts: state.riskAlerts,
+    };
+    const csv = serializeToCSV(baseline, scenarios);
+    downloadFile(csv, `netplan-export-${todayStamp()}.csv`, "text/csv");
+    showStatus("success", `Exported ${state.sites.length} sites, ${scenarios.length} scenarios as CSV`);
+  }, [showStatus]);
+
+  const handleImport = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const text = ev.target?.result as string;
+      if (!text) {
+        showStatus("error", "File is empty");
+        return;
+      }
+
+      const isCSV = file.name.toLowerCase().endsWith(".csv");
+
+      if (isCSV) {
+        const parsed = parseFromCSV(text);
+        if (typeof parsed === "string") {
+          showStatus("error", parsed);
+          return;
+        }
+        if (!window.confirm("This will replace all current baseline data and scenarios. Continue?")) return;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        useBaselineStore.getState().loadAllData(parsed.baseline as any);
+        useScenarioStore.getState().replaceAllScenarios(parsed.scenarios);
+        showStatus("success", `Imported data from CSV (${parsed.baseline.sites?.length ?? 0} sites, ${parsed.scenarios.length} scenarios)`);
+      } else {
+        let parsed: Record<string, unknown>;
+        try {
+          parsed = JSON.parse(text);
+        } catch {
+          showStatus("error", "Invalid JSON file");
+          return;
+        }
+
+        // Validate structure
+        if (!parsed.baseline || typeof parsed.baseline !== "object") {
+          showStatus("error", 'Invalid format: missing "baseline" object');
+          return;
+        }
+        const bl = parsed.baseline as Record<string, unknown>;
+        for (const key of BASELINE_SECTIONS) {
+          if (!Array.isArray(bl[key])) {
+            showStatus("error", `Invalid format: baseline.${key} must be an array`);
+            return;
+          }
+        }
+        if (!Array.isArray(parsed.scenarios)) {
+          showStatus("error", 'Invalid format: "scenarios" must be an array');
+          return;
+        }
+
+        if (!window.confirm("This will replace all current baseline data and scenarios. Continue?")) return;
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        useBaselineStore.getState().loadAllData(bl as any);
+        useScenarioStore.getState().replaceAllScenarios(parsed.scenarios as Scenario[]);
+        const siteCount = (bl.sites as unknown[]).length;
+        const scenarioCount = (parsed.scenarios as unknown[]).length;
+        showStatus("success", `Imported ${siteCount} sites, ${scenarioCount} scenarios from JSON`);
+      }
+
+      // Reset file input so the same file can be re-imported
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    };
+    reader.readAsText(file);
+  }, [showStatus]);
+
+  const handleReset = useCallback(() => {
+    if (!window.confirm("This will reset all data to the built-in defaults and remove all scenarios. Continue?")) return;
+    useBaselineStore.getState().resetToSeed();
+    useScenarioStore.getState().replaceAllScenarios([]);
+    showStatus("success", "Reset to default seed data");
+  }, [showStatus]);
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base">Data Export & Import</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <p className="text-sm text-muted-foreground">
+          Download all baseline network data and scenarios, or import a previously exported file to replace the current dataset. Both JSON and CSV formats are supported.
+        </p>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button variant="outline" size="sm" onClick={handleExportJSON}>Export JSON</Button>
+          <Button variant="outline" size="sm" onClick={handleExportCSV}>Export CSV</Button>
+          <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}>Import Data</Button>
+          <Button variant="outline" size="sm" onClick={handleReset}>Reset to Defaults</Button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".json,.csv"
+            className="hidden"
+            onChange={handleImport}
+          />
+        </div>
+        {status && (
+          <Badge
+            variant="secondary"
+            className={status.type === "error" ? "bg-red-100 text-red-700" : "bg-emerald-100 text-emerald-700"}
+          >
+            {status.message}
+          </Badge>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
 
 /* ------------------------------------------------------------------ */
 /*  SVG: Entity-Relationship Diagram                                   */
@@ -135,7 +509,7 @@ function CalcPipelineDiagram() {
 /* ------------------------------------------------------------------ */
 /*  Entity field reference data                                        */
 /* ------------------------------------------------------------------ */
-const ENTITY_FIELDS: { entity: string; color: string; fields: string }[] = [
+const ENTITY_FIELD_REF: { entity: string; color: string; fields: string }[] = [
   { entity: "Site", color: "bg-blue-100 text-blue-700", fields: "id, name, region, country, status, modalities[], lineCount, lat, lng" },
   { entity: "ProductionLine", color: "bg-purple-100 text-purple-700", fields: "id, siteId → Site, modality, lineType, capacity, utilization%, commissionYear" },
   { entity: "Asset", color: "bg-purple-100 text-purple-700", fields: "id, lineId → Line, siteId → Site, assetType, age, lifespan, obsolescenceRisk, maintenanceCost, replacementCost" },
@@ -361,6 +735,9 @@ export default function MethodologyContent() {
         <TabsContent value="data-model">
           <div className="space-y-6">
 
+            {/* Data Export & Import */}
+            <DataExportImportCard />
+
             {/* Section A: Entity Relationships */}
             <Card>
               <CardHeader>
@@ -388,7 +765,7 @@ export default function MethodologyContent() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {ENTITY_FIELDS.map((e) => (
+                    {ENTITY_FIELD_REF.map((e) => (
                       <TableRow key={e.entity}>
                         <TableCell>
                           <Badge variant="secondary" className={e.color}>{e.entity}</Badge>

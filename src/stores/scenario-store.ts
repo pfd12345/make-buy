@@ -14,6 +14,7 @@ interface ScenarioState {
   deleteScenario: (id: string) => void;
   setActiveScenario: (id: string | null) => void;
   updateScenarioStatus: (id: string, status: ScenarioStatus) => void;
+  replaceAllScenarios: (scenarios: Scenario[]) => void;
   getScenarioById: (id: string) => Scenario | undefined;
   getActiveScenario: () => Scenario | undefined;
   getAllScenarios: () => Scenario[];
@@ -60,6 +61,13 @@ export const useScenarioStore = create<ScenarioState>()(
         set((state) => {
           const scenario = state.scenarios.find((s) => s.id === id);
           if (scenario) scenario.status = status;
+        });
+      },
+
+      replaceAllScenarios: (scenarios: Scenario[]) => {
+        set((state) => {
+          state.scenarios = scenarios;
+          state.activeScenarioId = null;
         });
       },
 

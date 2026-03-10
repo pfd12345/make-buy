@@ -22,6 +22,17 @@ interface BaselineState {
   isCustomDataLoaded: boolean;
 
   loadCSVData: (dataType: string, records: unknown[]) => void;
+  loadAllData: (data: {
+    sites: Site[];
+    performance: SitePerformance[];
+    lines: ProductionLine[];
+    assets: Asset[];
+    workforce: WorkforceEntry[];
+    opex: OpexBreakdown[];
+    capex: CapexEntry[];
+    qualifications: SiteProductQualification[];
+    riskAlerts: RiskAlert[];
+  }) => void;
   resetToSeed: () => void;
   getNetworkSummary: () => NetworkSummary;
   getSiteById: (id: string) => Site | undefined;
@@ -64,6 +75,21 @@ export const useBaselineStore = create<BaselineState>()(
             state.capex = records as CapexEntry[];
             break;
         }
+        state.isCustomDataLoaded = true;
+      });
+    },
+
+    loadAllData: (data) => {
+      set((state) => {
+        state.sites = data.sites;
+        state.performance = data.performance;
+        state.lines = data.lines;
+        state.assets = data.assets;
+        state.workforce = data.workforce;
+        state.opex = data.opex;
+        state.capex = data.capex;
+        state.qualifications = data.qualifications;
+        state.riskAlerts = data.riskAlerts;
         state.isCustomDataLoaded = true;
       });
     },
