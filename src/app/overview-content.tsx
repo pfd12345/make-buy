@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import { useBaselineStore } from "@/stores/baseline-store";
 import { PageHeader } from "@/components/layout/page-header";
 import { KPICard } from "@/components/charts/kpi-card";
@@ -9,15 +10,45 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
 export default function OverviewContent() {
-  const summary = useBaselineStore((s) => s.getNetworkSummary());
   const sites = useBaselineStore((s) => s.sites);
   const performance = useBaselineStore((s) => s.performance);
+  const opex = useBaselineStore((s) => s.opex);
+  const capex = useBaselineStore((s) => s.capex);
+  const workforce = useBaselineStore((s) => s.workforce);
   const riskAlerts = useBaselineStore((s) => s.riskAlerts);
 
-  const utilData = sites.map((site) => {
-    const perf = performance.find((p) => p.siteId === site.id);
-    return { name: site.name, utilization: perf?.utilization ?? 0 };
-  }).sort((a, b) => b.utilization - a.utilization);
+  const summary = useMemo(() => {
+    const totalOpex = opex.reduce((sum, o) => sum + o.total, 0);
+    const totalCapex = capex.filter((c) => c.year === 2026).reduce((sum, c) => sum + c.amount, 0);
+    const totalHeadcount = workforce.reduce((sum, w) => sum + w.headcount, 0);
+
+    let weightedUtil = 0;
+    let weightedOtif = 0;
+    let totalWeight = 0;
+    for (const perf of performance) {
+      const siteHC = workforce.filter((w) => w.siteId === perf.siteId).reduce((s, w) => s + w.headcount, 0);
+      weightedUtil += perf.utilization * siteHC;
+      weightedOtif += perf.otif * siteHC;
+      totalWeight += siteHC;
+    }
+
+    return {
+      totalOpex: Math.round(totalOpex),
+      totalCapex: Math.round(totalCapex),
+      avgUtilization: totalWeight > 0 ? Math.round(weightedUtil / totalWeight) : 0,
+      avgOtif: totalWeight > 0 ? Math.round(weightedOtif / totalWeight) : 0,
+      totalHeadcount,
+      siteCount: sites.length,
+    };
+  }, [sites, performance, opex, capex, workforce]);
+
+  const utilData = useMemo(() =>
+    sites.map((site) => {
+      const perf = performance.find((p) => p.siteId === site.id);
+      return { name: site.name, utilization: perf?.utilization ?? 0 };
+    }).sort((a, b) => b.utilization - a.utilization),
+    [sites, performance]
+  );
 
   return (
     <div className="space-y-6">

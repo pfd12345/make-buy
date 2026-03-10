@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
+import { useShallow } from "zustand/react/shallow";
 import { useScenarioStore } from "@/stores/scenario-store";
 import { useScenarioHydration } from "@/hooks/use-store-hydration";
 import { useBaselineStore } from "@/stores/baseline-store";
@@ -20,11 +21,11 @@ export default function ImpactContent() {
   const scenarios = useScenarioStore((s) => s.scenarios);
   const activeId = useScenarioStore((s) => s.activeScenarioId);
   const setActive = useScenarioStore((s) => s.setActiveScenario);
-  const baseline = useBaselineStore((s) => ({
+  const baseline = useBaselineStore(useShallow((s) => ({
     sites: s.sites, performance: s.performance, lines: s.lines,
     assets: s.assets, workforce: s.workforce, opex: s.opex,
     capex: s.capex, qualifications: s.qualifications,
-  }));
+  })));
 
   const activeScenario = scenarios.find((s) => s.id === activeId);
   const impact = useMemo(() => {
