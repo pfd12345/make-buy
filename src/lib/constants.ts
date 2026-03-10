@@ -75,6 +75,7 @@ export const NAV_ITEMS = [
   { label: "Workforce & Opex", href: "/workforce", icon: "Users", section: "ACT" },
   { label: "Dependencies", href: "/dependencies", icon: "Network", section: "ACT" },
   { label: "Collaboration", href: "/collaboration", icon: "MessageSquare", section: "ACT" },
+  { label: "Methodology", href: "/methodology", icon: "BookOpen", section: "ACT" },
 ] as const;
 
 export const OPEX_LABELS: Record<string, string> = {

@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import {
   LayoutDashboard, Database, Activity, Cog,
   FlaskConical, GitCompare, FileBarChart,
-  Users, Network, MessageSquare, ChevronLeft, ChevronRight,
+  Users, Network, MessageSquare, BookOpen, ChevronLeft, ChevronRight,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { NAV_ITEMS } from "@/lib/constants";
@@ -14,7 +14,7 @@ import { useUIStore } from "@/stores/ui-store";
 const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
   LayoutDashboard, Database, Activity, Cog,
   FlaskConical, GitCompare, FileBarChart,
-  Users, Network, MessageSquare,
+  Users, Network, MessageSquare, BookOpen,
 };
 
 export function AppSidebar() {
